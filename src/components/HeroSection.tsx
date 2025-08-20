@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getRandomDump, type Dump } from "@/utils/mockData";
+import { getRandomDump, type Dump } from "@/services/supabaseService";
 import DumpCard from "@/components/DumpCard";
 import UploadForm from "@/components/UploadForm";
 import { Shuffle, Plus } from "lucide-react";
@@ -13,12 +13,16 @@ const HeroSection = () => {
 
   const handleGetRandomDump = async () => {
     setIsLoading(true);
-    // Simulate loading delay for better UX
-    await new Promise(resolve => setTimeout(resolve, 800));
     
-    const dump = getRandomDump();
-    setCurrentDump(dump);
-    setKey(prev => prev + 1); // Trigger re-animation
+    try {
+      const dump = await getRandomDump();
+      setCurrentDump(dump);
+      setKey(prev => prev + 1); // Trigger re-animation
+    } catch (error) {
+      console.error('Failed to fetch random dump:', error);
+      // You might want to show an error toast here
+    }
+    
     setIsLoading(false);
   };
 

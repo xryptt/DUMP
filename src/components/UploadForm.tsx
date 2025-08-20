@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload, X, Plus } from "lucide-react";
-import { uploadDump, categories } from "@/utils/mockData";
+import { uploadDump, categories } from "@/services/supabaseService";
 import { useToast } from "@/hooks/use-toast";
 
 const UploadForm = () => {
@@ -53,7 +53,7 @@ const UploadForm = () => {
       return;
     }
 
-    if ((dumpType === 'image' || dumpType === 'voice') && !file) {
+    if ((dumpType === 'image' || dumpType === 'voice' || dumpType === 'video') && !file) {
       toast({
         title: "Error",
         description: "Please select a file to upload",
@@ -63,27 +63,29 @@ const UploadForm = () => {
       return;
     }
 
-    // Simulate upload delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
     const dumpData = {
       type: dumpType,
       content: dumpType === 'text' ? textContent : URL.createObjectURL(file!),
       tags: selectedTags,
+      file: dumpType !== 'text' ? file || undefined : undefined,
     };
 
-    const result = uploadDump(dumpData);
+    const result = await uploadDump(dumpData);
     
     toast({
-      title: "Success!",
+      title: result.success ? "Success!" : "Error",
       description: result.message,
+      variant: result.success ? "default" : "destructive",
     });
 
-    // Reset form
-    setTextContent('');
-    setSelectedTags([]);
-    setFile(null);
-    setDumpType('text');
+    if (result.success) {
+      // Reset form
+      setTextContent('');
+      setSelectedTags([]);
+      setFile(null);
+      setDumpType('text');
+    }
+    
     setIsSubmitting(false);
   };
 
@@ -98,7 +100,7 @@ const UploadForm = () => {
           <div className="space-y-3">
             <Label className="text-base font-medium">What type of dump is this?</Label>
             <div className="flex gap-3">
-              {(['text', 'image', 'voice'] as const).map((type) => (
+              {(['text', 'image', 'voice', 'video'] as const).map((type) => (
                 <Button
                   key={type}
                   type="button"
@@ -106,7 +108,7 @@ const UploadForm = () => {
                   onClick={() => setDumpType(type)}
                   className="capitalize flex-1"
                 >
-                  {type === 'voice' ? 'Audio' : type}
+                  {type === 'voice' ? 'Audio' : type === 'video' ? 'Video' : type}
                 </Button>
               ))}
             </div>
@@ -130,10 +132,10 @@ const UploadForm = () => {
             </div>
           )}
 
-          {(dumpType === 'image' || dumpType === 'voice') && (
+          {(dumpType === 'image' || dumpType === 'voice' || dumpType === 'video') && (
             <div className="space-y-2">
               <Label htmlFor="file">
-                Upload {dumpType === 'image' ? 'Image/GIF' : 'Audio File'}
+                Upload {dumpType === 'image' ? 'Image/GIF' : dumpType === 'voice' ? 'Audio File' : 'Video File'}
               </Label>
               <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                 {file ? (
@@ -155,7 +157,7 @@ const UploadForm = () => {
                       id="file"
                       type="file"
                       onChange={handleFileChange}
-                      accept={dumpType === 'image' ? 'image/*' : 'audio/*'}
+                      accept={dumpType === 'image' ? 'image/*' : dumpType === 'voice' ? 'audio/*' : 'video/*'}
                       className="hidden"
                     />
                     <Label
@@ -165,7 +167,7 @@ const UploadForm = () => {
                       Click to upload or drag and drop
                     </Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {dumpType === 'image' ? 'PNG, JPG, GIF up to 10MB' : 'MP3, WAV up to 10MB'}
+                      {dumpType === 'image' ? 'PNG, JPG, GIF up to 10MB' : dumpType === 'voice' ? 'MP3, WAV up to 10MB' : 'MP4, MOV up to 50MB'}
                     </p>
                   </div>
                 )}

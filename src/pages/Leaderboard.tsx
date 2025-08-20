@@ -1,22 +1,59 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import DumpCard from "@/components/DumpCard";
-import { getTopRatedDumps, mockDumps } from "@/utils/mockData";
+import { getTopRatedDumps, getRecentDumps, getDumpStats, type Dump } from "@/services/supabaseService";
 import { Trophy, TrendingUp, Clock, Star } from "lucide-react";
 
 const Leaderboard = () => {
-  const topRatedDumps = getTopRatedDumps();
-  const recentDumps = [...mockDumps].sort((a, b) => 
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  ).slice(0, 3);
+  const [topRatedDumps, setTopRatedDumps] = useState<Dump[]>([]);
+  const [recentDumps, setRecentDumps] = useState<Dump[]>([]);
+  const [stats, setStats] = useState({
+    totalDumps: 0,
+    activeToday: 0,
+    topRating: 0,
+    categories: 8
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [topDumps, recent, dumpStats] = await Promise.all([
+          getTopRatedDumps(),
+          getRecentDumps(3),
+          getDumpStats()
+        ]);
+        
+        setTopRatedDumps(topDumps);
+        setRecentDumps(recent);
+        
+        // Calculate top rating
+        const topRating = topDumps.length > 0 ? Math.max(...topDumps.map(d => d.rating)) : 0;
+        
+        setStats({
+          totalDumps: dumpStats.totalDumps,
+          activeToday: recent.length, // Simplified - you might want to filter by today's date
+          topRating: Number(topRating.toFixed(1)),
+          categories: 8
+        });
+      } catch (error) {
+        console.error('Failed to load leaderboard data:', error);
+      }
+      setLoading(false);
+    };
+    
+    loadData();
+  }, []);
 
   const dumpOfTheDay = topRatedDumps[0];
 
-  const stats = [
-    { label: "Total Dumps", value: "10,247", icon: TrendingUp },
-    { label: "Active Today", value: "1,234", icon: Clock },
-    { label: "Top Rating", value: "4.9★", icon: Star },
-    { label: "Categories", value: "8", icon: Trophy },
+  const statsDisplay = [
+    { label: "Total Dumps", value: stats.totalDumps.toLocaleString(), icon: TrendingUp },
+    { label: "Recent Dumps", value: stats.activeToday.toString(), icon: Clock },
+    { label: "Top Rating", value: `${stats.topRating}★`, icon: Star },
+    { label: "Categories", value: stats.categories.toString(), icon: Trophy },
   ];
 
   return (
@@ -34,7 +71,7 @@ const Leaderboard = () => {
 
         {/* Stats Row */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-          {stats.map((stat, index) => (
+          {statsDisplay.map((stat, index) => (
             <Card key={index} className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:scale-105">
               <CardContent className="p-8 text-center relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-20 h-20 bg-accent/10 rounded-full -translate-y-10 translate-x-10"></div>
@@ -50,8 +87,16 @@ const Leaderboard = () => {
           ))}
         </div>
 
+        {loading && (
+          <div className="text-center py-12">
+            <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 max-w-md mx-auto">
+              <p className="text-white/80 text-lg">Loading leaderboard...</p>
+            </div>
+          </div>
+        )}
+
         {/* Dump of the Day */}
-        <div className="mb-16">
+        {!loading && dumpOfTheDay && <div className="mb-16">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
               <Trophy className="w-8 h-8 text-yellow-400" />
@@ -63,20 +108,18 @@ const Leaderboard = () => {
             </p>
           </div>
           
-          {dumpOfTheDay && (
-            <div className="relative">
-              <div className="absolute -top-4 -left-4 z-10">
-                <Badge className="bg-yellow-400 text-black font-bold text-lg px-4 py-2">
-                  #1 Today
-                </Badge>
-              </div>
-              <DumpCard dump={dumpOfTheDay} className="border-2 border-yellow-400/50 shadow-xl shadow-yellow-400/20" />
+          <div className="relative">
+            <div className="absolute -top-4 -left-4 z-10">
+              <Badge className="bg-yellow-400 text-black font-bold text-lg px-4 py-2">
+                #1 Today
+              </Badge>
             </div>
-          )}
-        </div>
+            <DumpCard dump={dumpOfTheDay} className="border-2 border-yellow-400/50 shadow-xl shadow-yellow-400/20" />
+          </div>
+        </div>}
 
         {/* Top Rated Dumps */}
-        <div className="mb-16">
+        {!loading && <div className="mb-16">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-white mb-4">Top Rated Dumps</h2>
             <p className="text-white/80">
@@ -99,10 +142,10 @@ const Leaderboard = () => {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* Recent Activity */}
-        <div>
+        {!loading && <div>
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-white mb-4">Recent Activity</h2>
             <p className="text-white/80">
@@ -125,7 +168,7 @@ const Leaderboard = () => {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* Call to Action */}
         <div className="mt-16 text-center">

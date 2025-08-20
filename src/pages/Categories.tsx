@@ -1,24 +1,43 @@
 import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DumpCard from "@/components/DumpCard";
-import { categories, getDumpsByCategory, type Dump } from "@/utils/mockData";
+import { categories, getDumpsByCategory, updateCategoryStats, type Dump } from "@/services/supabaseService";
 import { Filter, TrendingUp } from "lucide-react";
 
 const Categories = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [filteredDumps, setFilteredDumps] = useState<Dump[]>([]);
+  const [categoryStats, setCategoryStats] = useState(categories);
+  const [loading, setLoading] = useState(false);
 
-  const handleCategoryClick = (categoryName: string) => {
+  // Load category stats on component mount
+  useEffect(() => {
+    const loadCategoryStats = async () => {
+      const stats = await updateCategoryStats();
+      setCategoryStats(stats);
+    };
+    loadCategoryStats();
+  }, []);
+
+  const handleCategoryClick = async (categoryName: string) => {
     const category = categoryName.toLowerCase();
     if (selectedCategory === category) {
       setSelectedCategory(null);
       setFilteredDumps([]);
     } else {
+      setLoading(true);
       setSelectedCategory(category);
-      const dumps = getDumpsByCategory(category);
-      setFilteredDumps(dumps);
+      try {
+        const dumps = await getDumpsByCategory(category);
+        setFilteredDumps(dumps);
+      } catch (error) {
+        console.error('Failed to fetch dumps by category:', error);
+        setFilteredDumps([]);
+      }
+      setLoading(false);
     }
   };
 
@@ -37,7 +56,7 @@ const Categories = () => {
 
         {/* Category Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {categories.map((category) => (
+          {categoryStats.map((category) => (
             <Card 
               key={category.name}
               className={`cursor-pointer transition-all duration-300 hover:shadow-xl transform hover:scale-105 ${
@@ -74,6 +93,13 @@ const Categories = () => {
         {/* Selected Category Results */}
         {selectedCategory && (
           <div className="space-y-8">
+            {loading && (
+              <div className="text-center py-12">
+                <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 max-w-md mx-auto">
+                  <p className="text-white/80 text-lg">Loading dumps...</p>
+                </div>
+              </div>
+            )}
             <div className="text-center">
               <h2 className="text-3xl font-bold text-white mb-2 capitalize">
                 {selectedCategory} Dumps
@@ -93,11 +119,11 @@ const Categories = () => {
               </Button>
             </div>
 
-            <div className="grid gap-8">
+            {!loading && <div className="grid gap-8">
               {filteredDumps.map((dump) => (
                 <DumpCard key={dump.id} dump={dump} className="animate-fade-in" />
               ))}
-            </div>
+            </div>}
 
             {filteredDumps.length === 0 && (
               <div className="text-center py-12">
